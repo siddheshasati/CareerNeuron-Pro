@@ -67,7 +67,10 @@ This project is configured for deployment on free Python hosting platforms that 
 2. Connect the repo to Render or Railway.
 3. Set environment variables from `.env.example`.
 4. Install dependencies and run `python manage.py collectstatic --noinput`.
-5. Start the web service using one of these commands:
+5. Run migrations:
+   - locally: `python manage.py migrate`
+   - on Render: the included `render.yaml` uses `releaseCommand: python manage.py migrate`
+6. Start the web service using one of these commands:
    - `gunicorn career_neuron.wsgi:application --log-file -`
    - `gunicorn app:app --log-file -` (supported if using `app.py` in the repo)
 

@@ -6,4 +6,5 @@ services:
     pythonVersion: "3.11"
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn career_neuron.wsgi:application --log-file -
+    releaseCommand: python manage.py migrate
     autoDeploy: true
