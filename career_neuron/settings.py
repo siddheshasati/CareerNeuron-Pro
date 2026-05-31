@@ -55,12 +55,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "career_neuron.wsgi.application"
 
+DATABASE_DIR = BASE_DIR / "db"
+DATABASE_DIR.mkdir(parents=True, exist_ok=True)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db" / "portal_web.db",
+        "NAME": DATABASE_DIR / "portal_web.db",
     }
 }
+
+MEDIA_ROOT = BASE_DIR / "uploads"
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
@@ -70,9 +75,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "portal" / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT.mkdir(parents=True, exist_ok=True)
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "uploads/"
-MEDIA_ROOT = BASE_DIR / "uploads"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SESSION_COOKIE_HTTPONLY = True
