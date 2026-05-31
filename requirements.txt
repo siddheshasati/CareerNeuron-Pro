@@ -4,6 +4,8 @@ langgraph
 langchain-community
 chromadb>=0.4.22
 python-dotenv
+dj-database-url
+psycopg2-binary
 Pillow
 PyPDF2
 fpdf

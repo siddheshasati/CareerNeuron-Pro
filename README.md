@@ -103,6 +103,7 @@ If Render is still using the default command `gunicorn app:app`, use the include
 - `DJANGO_DEBUG`
 - `DJANGO_ALLOWED_HOSTS`
 - `RENDER_EXTERNAL_HOSTNAME` (optional, automatically used on Render)
+- `DATABASE_URL` (optional, use for managed PostgreSQL on Render)
 - `EMAIL_BACKEND`
 - `EMAIL_HOST`
 - `EMAIL_PORT`

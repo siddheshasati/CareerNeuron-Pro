@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 load_dotenv()
 
@@ -57,12 +58,20 @@ WSGI_APPLICATION = "career_neuron.wsgi.application"
 
 DATABASE_DIR = BASE_DIR / "db"
 DATABASE_DIR.mkdir(parents=True, exist_ok=True)
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": DATABASE_DIR / "portal_web.db",
+DEFAULT_SQLITE_DB_PATH = DATABASE_DIR / "portal_web.db"
+
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(DEFAULT_SQLITE_DB_PATH),
+        }
+    }
 
 MEDIA_ROOT = BASE_DIR / "uploads"
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
