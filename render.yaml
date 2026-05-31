@@ -14,7 +14,9 @@ services:
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
     releaseCommand: python manage.py migrate --noinput
-    startCommand: gunicorn career_neuron.wsgi:application --workers 2 --worker-class sync --max-requests 1000 --log-file -
+    startCommand: |
+      python manage.py migrate --noinput
+      gunicorn career_neuron.wsgi:application --workers 2 --worker-class sync --max-requests 1000 --log-file -
     envVars:
       - key: DATABASE_URL
         fromDatabase:
