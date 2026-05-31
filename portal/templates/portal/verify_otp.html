@@ -1,0 +1,92 @@
+{% extends 'portal/base.html' %}
+
+{% block title %}Register - Step 2: OTP Verification - Career Neuron{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="max-width: 500px; margin: 4rem auto;">
+    <h2 style="text-align: center; margin-bottom: 1rem;">Verify Your Email</h2>
+    <p style="text-align: center; color: var(--text-muted); margin-bottom: 2rem;">Step 2 of 3 - Enter the OTP sent to your email</p>
+
+    <div style="background: rgba(0, 240, 255, 0.05); border-left: 4px solid #00f0ff; padding: 1rem; border-radius: 4px; margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.9rem;"><strong>Email:</strong> {{ email }}</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">OTP expires in 10 minutes</p>
+    </div>
+
+    <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="otp_code">Enter OTP Code</label>
+            <input type="text" id="otp_code" name="otp_code" class="form-control" placeholder="000000" maxlength="6" required autofocus style="font-size: 1.5rem; letter-spacing: 0.5rem; text-align: center;">
+            <small style="color: var(--text-muted);">6-digit code sent to your email</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 2rem;">
+            Verify OTP
+        </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 2rem;">
+        <form method="GET" action="{% url 'portal:register' %}" style="display: inline;">
+            <button type="submit" class="btn btn-secondary" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.3); color: #fff; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+                Back to Email Entry
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+.btn-primary {
+    background: linear-gradient(135deg, #00f0ff 0%, #7c3aed 100%);
+    color: #fff;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 240, 255, 0.3);
+}
+
+.form-control {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    padding: 0.75rem;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #00f0ff;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.form-control::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #fff;
+    font-weight: 500;
+}
+
+.glass-panel {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    border-radius: 12px;
+    padding: 2rem;
+}
+</style>
+{% endblock %}

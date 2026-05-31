@@ -1,0 +1,48 @@
+{% extends 'portal/base.html' %}
+
+{% block title %}{% if is_login %}Login{% else %}Register{% endif %} - Pro Job Portal{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="max-width: 500px; margin: 4rem auto;">
+    <h2 style="text-align: center; margin-bottom: 2rem;">{% if is_login %}Access Portal{% else %}Join the Network{% endif %}</h2>
+    
+    <form method="POST" action="{% if is_login %}{% url 'portal:login' %}{% else %}{% url 'portal:register' %}{% endif %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" class="form-control" required>
+        </div>
+        
+        {% if not is_login %}
+        <div class="form-group">
+            <label for="mobile">Mobile Number</label>
+            <input type="text" id="mobile" name="mobile" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="role">Role</label>
+            <select id="role" name="role" class="form-control">
+                <option value="User">Job Seeker (User)</option>
+                <option value="Admin">Administrator</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" class="form-control" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+            {% if is_login %}Login to Dashboard{% else %}Register Account{% endif %}
+        </button>
+    </form>
+    
+    <div style="text-align: center; margin-top: 1.5rem;">
+        {% if is_login %}
+            <span style="color: var(--text-muted)">Don't have an account?</span> <a href="{% url 'portal:register' %}">Sign Up</a>
+        {% else %}
+            <span style="color: var(--text-muted)">Already registered?</span> <a href="{% url 'portal:login' %}">Login</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

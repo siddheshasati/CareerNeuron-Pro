@@ -1,0 +1,15 @@
+django>=4.2
+langchain
+langgraph
+langchain-community
+chromadb>=0.4.22
+python-dotenv
+Pillow
+PyPDF2
+fpdf
+Requests
+beautifulsoup4
+SQLAlchemy
+langchain-groq
+gunicorn
+whitenoise

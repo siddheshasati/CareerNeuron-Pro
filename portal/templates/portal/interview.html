@@ -1,0 +1,418 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Interview Simulator</p>
+        <h1>AI Interview Room</h1>
+    </div>
+    <span class="score-pill" id="session-state">Not started</span>
+</section>
+
+<section class="interview-room">
+    <aside class="panel interviewer-panel">
+        <div class="interviewer-avatar" aria-hidden="true">
+            <div class="avatar-halo"></div>
+            <div class="avatar-head">
+                <span class="avatar-eye left"></span>
+                <span class="avatar-eye right"></span>
+                <span class="avatar-smile"></span>
+            </div>
+            <div class="avatar-body"></div>
+        </div>
+        <div>
+            <h2>Aria</h2>
+            <p class="muted">AI Technical Interviewer</p>
+        </div>
+        <div class="interviewer-status" id="interviewer-status">
+            Waiting for interview setup
+        </div>
+    </aside>
+
+    <main class="interview-main">
+        <section class="panel" id="setup-section">
+            <div class="section-title">
+                <h2>Interview Setup</h2>
+                <span>Required</span>
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="target-role">Role Name</label>
+                    <input type="text" id="target-role" class="form-control" placeholder="Software Engineer" required>
+                </div>
+                <div class="form-group">
+                    <label for="target-company">Company Name</label>
+                    <input type="text" id="target-company" class="form-control" placeholder="Google" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="job-description">Job Description Optional</label>
+                <textarea id="job-description" class="form-control" rows="5" placeholder="Paste the company job description here to make the interview more specific."></textarea>
+            </div>
+            <button id="start-btn" class="btn btn-primary">Start Interview</button>
+        </section>
+
+        <section class="panel transcript-panel">
+            <div class="section-title">
+                <h2>Conversation</h2>
+                <span id="turn-count">0 turns</span>
+            </div>
+            <div id="chat-history" class="chat-history">
+                <div class="empty-state">Your interview conversation will appear here.</div>
+            </div>
+        </section>
+
+        <section class="panel answer-panel" id="voice-control-panel" hidden>
+            <div class="section-title">
+                <h2>Your Answer</h2>
+                <span id="mic-status-text">Mic off</span>
+            </div>
+            <textarea id="answer-textbox" class="form-control answer-textbox" rows="5" placeholder="Use the mic or type your answer here."></textarea>
+            <div id="interim-preview" class="interim-preview"></div>
+            <div class="interview-actions">
+                <button id="mic-toggle-btn" class="btn btn-secondary" type="button">
+                    <span id="mic-btn-text">Start Recording</span>
+                </button>
+                <button id="submit-answer-btn" class="btn btn-primary" type="button">Submit Answer</button>
+            </div>
+            <p class="muted">Tip: Click Start Recording after the interviewer asks a question. If your browser blocks voice, type your answer and submit.</p>
+        </section>
+    </main>
+</section>
+
+<script>
+let chatHistory = [];
+let recognition = null;
+let recognizing = false;
+let userWantsRecording = false;
+let interviewerSpeaking = false;
+let baseTranscript = "";
+let finalTranscriptBuffer = "";
+let micStream = null;
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const startBtn = document.getElementById('start-btn');
+const setupSection = document.getElementById('setup-section');
+const voicePanel = document.getElementById('voice-control-panel');
+const micToggleBtn = document.getElementById('mic-toggle-btn');
+const micBtnText = document.getElementById('mic-btn-text');
+const micStatusText = document.getElementById('mic-status-text');
+const answerTextbox = document.getElementById('answer-textbox');
+const interimPreview = document.getElementById('interim-preview');
+const submitAnswerBtn = document.getElementById('submit-answer-btn');
+const chatContainer = document.getElementById('chat-history');
+const turnCount = document.getElementById('turn-count');
+const sessionState = document.getElementById('session-state');
+const interviewerStatus = document.getElementById('interviewer-status');
+
+function setStatus(text, tone = 'neutral') {
+    interviewerStatus.textContent = text;
+    sessionState.textContent = tone === 'recording' ? 'Recording' : tone === 'thinking' ? 'Thinking' : tone === 'done' ? 'Complete' : 'In progress';
+}
+
+function cleanAiText(text) {
+    return (text || '').replace(/\*\*/g, '').trim();
+}
+
+function createRecognition() {
+    if (!SpeechRecognition) {
+        micToggleBtn.disabled = true;
+        micBtnText.textContent = 'Voice unavailable';
+        micStatusText.textContent = 'Use typing';
+        setStatus('This browser does not support speech recognition. Type your answer instead.');
+        return null;
+    }
+
+    const instance = new SpeechRecognition();
+    instance.continuous = true;
+    instance.interimResults = true;
+    instance.lang = 'en-US';
+
+    instance.onstart = () => {
+        recognizing = true;
+        micToggleBtn.classList.add('recording');
+        micBtnText.textContent = 'Stop Recording';
+        micStatusText.textContent = 'Listening';
+        setStatus('Listening to your answer', 'recording');
+        baseTranscript = answerTextbox.value.trim();
+        finalTranscriptBuffer = '';
+    };
+
+    instance.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            userWantsRecording = false;
+            micStatusText.textContent = 'Mic permission blocked';
+            setStatus('Microphone permission is blocked. Type your answer instead.');
+        } else if (event.error === 'no-speech') {
+            setStatus('No speech detected yet. Keep speaking, or type your answer.');
+        } else if (event.error === 'network') {
+            userWantsRecording = false;
+            setStatus('Speech service network error. Type your answer for now.');
+        }
+    };
+
+    instance.onend = () => {
+        recognizing = false;
+        micToggleBtn.classList.remove('recording');
+        interimPreview.textContent = '';
+
+        if (userWantsRecording && !interviewerSpeaking) {
+            micBtnText.textContent = 'Reconnecting...';
+            micStatusText.textContent = 'Reconnecting';
+            setStatus('Recording paused by browser. Reconnecting...', 'recording');
+            setTimeout(() => startSpeechRecognition(), 450);
+            return;
+        }
+
+        micBtnText.textContent = 'Start Recording';
+        micStatusText.textContent = 'Mic off';
+    };
+
+    instance.onresult = (event) => {
+        let interimTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const text = event.results[i][0].transcript.trim();
+            if (event.results[i].isFinal) {
+                finalTranscriptBuffer += (finalTranscriptBuffer ? ' ' : '') + text;
+            } else {
+                interimTranscript += (interimTranscript ? ' ' : '') + text;
+            }
+        }
+
+        const combinedFinal = [baseTranscript, finalTranscriptBuffer].filter(Boolean).join(' ');
+        answerTextbox.value = [combinedFinal, interimTranscript].filter(Boolean).join(' ');
+        interimPreview.textContent = interimTranscript ? `Live transcript: ${interimTranscript}` : '';
+    };
+
+    return instance;
+}
+
+function stopMicStream() {
+    if (micStream) {
+        micStream.getTracks().forEach((track) => track.stop());
+        micStream = null;
+    }
+}
+
+async function requestMicAccess() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        return true;
+    }
+
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    return true;
+}
+
+async function startSpeechRecognition() {
+    if (recognizing || interviewerSpeaking) return;
+    if (!SpeechRecognition) {
+        setStatus('Voice recognition is not available in this browser. Type your answer instead.');
+        return;
+    }
+
+    userWantsRecording = true;
+    micToggleBtn.disabled = true;
+    micBtnText.textContent = 'Starting...';
+    micStatusText.textContent = 'Requesting mic';
+
+    try {
+        await requestMicAccess();
+        stopMicStream();
+        recognition = createRecognition();
+        if (!recognition) return;
+        recognition.start();
+    } catch (error) {
+        console.warn('Could not start recognition:', error);
+        userWantsRecording = false;
+        recognizing = false;
+        micToggleBtn.classList.remove('recording');
+        micBtnText.textContent = 'Start Recording';
+        micStatusText.textContent = 'Mic off';
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            setStatus('Microphone permission denied. Allow mic access in the browser, or type your answer.');
+        } else {
+            setStatus('Could not start recording. Type your answer, or try Chrome on 127.0.0.1.');
+        }
+    } finally {
+        micToggleBtn.disabled = false;
+    }
+}
+
+function stopSpeechRecognition(keepIntent = false) {
+    userWantsRecording = keepIntent;
+    if (recognition && recognizing) {
+        try {
+            recognition.stop();
+        } catch (error) {
+            console.warn('Could not stop recognition:', error);
+        }
+    } else {
+        recognizing = false;
+        micToggleBtn.classList.remove('recording');
+        micBtnText.textContent = 'Start Recording';
+        micStatusText.textContent = 'Mic off';
+    }
+    stopMicStream();
+}
+
+function appendMessage(role, text) {
+    const empty = chatContainer.querySelector('.empty-state');
+    if (empty) empty.remove();
+
+    const bubble = document.createElement('article');
+    bubble.className = `interview-bubble ${role === 'ai' ? 'ai' : 'user'}`;
+    bubble.innerHTML = `<strong>${role === 'ai' ? 'Aria' : 'You'}</strong><p>${cleanAiText(text)}</p>`;
+    chatContainer.appendChild(bubble);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    chatHistory.push({ role: role, content: cleanAiText(text) });
+    turnCount.textContent = `${chatHistory.length} turn${chatHistory.length === 1 ? '' : 's'}`;
+}
+
+function speakText(text, onDone) {
+    const spokenText = cleanAiText(text);
+    interviewerSpeaking = true;
+    stopSpeechRecognition(false);
+    setStatus('Interviewer is speaking');
+
+    if (!('speechSynthesis' in window)) {
+        interviewerSpeaking = false;
+        onDone();
+        return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(spokenText);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.95;
+    utterance.pitch = 0.95;
+
+    utterance.onend = () => {
+        interviewerSpeaking = false;
+        onDone();
+    };
+    utterance.onerror = () => {
+        interviewerSpeaking = false;
+        onDone();
+    };
+
+    window.speechSynthesis.speak(utterance);
+}
+
+function getInterviewPayload() {
+    return {
+        history: chatHistory,
+        role: document.getElementById('target-role').value.trim() || 'Software Engineer',
+        company: document.getElementById('target-company').value.trim() || 'Tech Company',
+        job_description: document.getElementById('job-description').value.trim()
+    };
+}
+
+function prepareAnswerInput() {
+    voicePanel.hidden = false;
+    answerTextbox.value = '';
+    baseTranscript = '';
+    finalTranscriptBuffer = '';
+    answerTextbox.focus();
+    userWantsRecording = false;
+    micBtnText.textContent = 'Start Recording';
+    micStatusText.textContent = 'Mic off';
+    setStatus('Your turn. Click Start Recording or type your answer.');
+}
+
+function sendToAI() {
+    voicePanel.hidden = true;
+    userWantsRecording = false;
+    stopSpeechRecognition(false);
+    setStatus('Generating the next question', 'thinking');
+
+    fetch("{% url 'portal:interview_api' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(getInterviewPayload())
+    })
+    .then((response) => response.json())
+    .then((data) => {
+        if (!data.success) {
+            setStatus(`Error: ${data.error}`);
+            voicePanel.hidden = false;
+            return;
+        }
+
+        let aiResponse = data.response || '';
+        const complete = aiResponse.includes('INTERVIEW_COMPLETE');
+        aiResponse = aiResponse.replace('INTERVIEW_COMPLETE', '').trim();
+
+        appendMessage('ai', complete ? `${aiResponse}\n\nInterview complete.` : aiResponse);
+        speakText(aiResponse, () => {
+            if (complete) {
+                voicePanel.hidden = true;
+                setStatus('Interview complete', 'done');
+            } else {
+                prepareAnswerInput();
+            }
+        });
+    })
+    .catch(() => {
+        setStatus('Network error. You can retry after checking the server.');
+        voicePanel.hidden = false;
+    });
+}
+
+if (!SpeechRecognition) {
+    micToggleBtn.disabled = true;
+    micBtnText.textContent = 'Voice unavailable';
+    micStatusText.textContent = 'Use typing';
+}
+
+startBtn.addEventListener('click', () => {
+    const role = document.getElementById('target-role').value.trim();
+    const company = document.getElementById('target-company').value.trim();
+
+    if (!role || !company) {
+        setStatus('Please enter role and company before starting.');
+        return;
+    }
+
+    setupSection.hidden = true;
+    appendMessage('user', `I am ready to interview for the ${role} role at ${company}.`);
+    sendToAI();
+});
+
+micToggleBtn.addEventListener('click', () => {
+    if (userWantsRecording || recognizing) {
+        stopSpeechRecognition(false);
+        setStatus('Recording stopped. Review or edit your answer.');
+    } else {
+        startSpeechRecognition();
+    }
+});
+
+submitAnswerBtn.addEventListener('click', () => {
+    stopSpeechRecognition(false);
+    const text = answerTextbox.value.trim();
+    if (!text) {
+        setStatus('Please speak or type an answer before submitting.');
+        return;
+    }
+
+    appendMessage('user', text);
+    sendToAI();
+});
+
+answerTextbox.addEventListener('input', () => {
+    baseTranscript = answerTextbox.value.trim();
+});
+
+answerTextbox.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        submitAnswerBtn.click();
+    }
+});
+</script>
+{% endblock %}

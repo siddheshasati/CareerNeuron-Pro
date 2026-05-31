@@ -1,0 +1,407 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Candidate Profile</p>
+        <h1>Profile Builder</h1>
+    </div>
+    <div class="profile-actions">
+        {% if profile.ats_score %}
+            <div class="score-pill">{{ profile.ats_score }}/100 ATS</div>
+        {% endif %}
+        <div class="mode-toggle" role="group" aria-label="Profile mode">
+            <button type="button" class="mode-button active" data-profile-mode="view">View</button>
+            <button type="button" class="mode-button" data-profile-mode="edit">Edit</button>
+        </div>
+    </div>
+</section>
+
+<section id="view-mode" class="profile-view">
+    <section class="panel profile-hero">
+        <div class="avatar-mark">
+            {{ user.first_name|default:user.email|first|upper }}
+        </div>
+        <div>
+            <p class="eyebrow">Profile Overview</p>
+            <h2>{{ user.get_full_name|default:profile.full_name|default:user.email }}</h2>
+            <p class="muted">{{ profile.city|default:'Location not added' }}{% if profile.state %}, {{ profile.state }}{% endif %}{% if profile.country %}, {{ profile.country }}{% endif %}</p>
+            {% if profile.skills %}
+                <p class="profile-summary">{{ profile.skills }}</p>
+            {% else %}
+                <p class="profile-summary muted">Add skills in Edit mode or upload your resume to build a stronger profile.</p>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="view-grid">
+        <article class="panel">
+            <div class="section-title">
+                <h2>Contact</h2>
+                <span>Registration</span>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span>Email</span>
+                    <strong>{{ user.email|default:'Not added' }}</strong>
+                </div>
+                <div class="detail-item">
+                    <span>Mobile</span>
+                    <strong>{{ profile.mobile|default:'Not added' }}</strong>
+                </div>
+                <div class="detail-item">
+                    <span>Gender</span>
+                    <strong>{{ profile.gender|default:'Not added' }}</strong>
+                </div>
+                <div class="detail-item">
+                    <span>Disability</span>
+                    <strong>{{ profile.disability|default:'Not added' }}</strong>
+                </div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="section-title">
+                <h2>Links</h2>
+                <span>Online</span>
+            </div>
+            <div class="link-list">
+                {% if profile.linkedin_url %}<a href="{{ profile.linkedin_url }}" target="_blank">LinkedIn</a>{% endif %}
+                {% if profile.github_url %}<a href="{{ profile.github_url }}" target="_blank">GitHub</a>{% endif %}
+                {% if profile.portfolio_url %}<a href="{{ profile.portfolio_url }}" target="_blank">Portfolio</a>{% endif %}
+                {% if profile.additional_url %}<a href="{{ profile.additional_url }}" target="_blank">{{ profile.additional_url_name|default:'Additional Link' }}</a>{% endif %}
+                {% if not profile.linkedin_url and not profile.github_url and not profile.portfolio_url and not profile.additional_url %}
+                    <p class="muted">No profile links added yet.</p>
+                {% endif %}
+            </div>
+        </article>
+    </section>
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Education</h2>
+            <span>{{ educations|length }} item{% if educations|length != 1 %}s{% endif %}</span>
+        </div>
+        <div class="timeline-list">
+            {% for edu in educations %}
+                <article class="timeline-item">
+                    <div>
+                        <h3>{{ edu.degree }}</h3>
+                        <p class="muted">{{ edu.institution }}</p>
+                        <p>{{ edu.specialization|default:edu.stream|default:'Specialization not added' }}</p>
+                    </div>
+                    <div class="timeline-meta">
+                        <span>{{ edu.location|default:edu.city|default:'Location not added' }}</span>
+                        <span>{{ edu.start_date|default:'Start' }} - {% if edu.currently_pursuing %}Present{% else %}{{ edu.end_date|default:'End' }}{% endif %}</span>
+                    </div>
+                </article>
+            {% empty %}
+                <p class="muted">No education details added yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Experience</h2>
+            <span>{{ experiences|length }} item{% if experiences|length != 1 %}s{% endif %}</span>
+        </div>
+        <div class="timeline-list">
+            {% for exp in experiences %}
+                <article class="timeline-item">
+                    <div>
+                        <h3>{{ exp.role }}</h3>
+                        <p class="muted">{{ exp.organization|default:exp.company }}</p>
+                        <p>{{ exp.summary|default:'Summary not added' }}</p>
+                    </div>
+                    <div class="timeline-meta">
+                        <span>{{ exp.location|default:'Location not added' }}</span>
+                        <span>{{ exp.start_date|default:'Start' }} - {{ exp.end_date|default:'Present' }}</span>
+                        {% if exp.current_ctc or exp.ctc %}<span>{{ exp.current_ctc|default:exp.ctc }}</span>{% endif %}
+                    </div>
+                </article>
+            {% empty %}
+                <p class="muted">No experience details added yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="sticky-actions">
+        <button type="button" class="btn btn-primary" data-profile-mode="edit">Edit Profile</button>
+        <a href="{% url 'portal:job_match' %}" class="btn btn-secondary">AutoMatch Jobs</a>
+    </div>
+</section>
+
+<form id="edit-mode" method="POST" action="{% url 'portal:profile' %}" enctype="multipart/form-data" class="profile-workspace" hidden>
+    {% csrf_token %}
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Registration Details</h2>
+            <span>Editable</span>
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" name="first_name" class="form-control" value="{{ user.first_name|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" name="last_name" class="form-control" value="{{ user.last_name|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Email ID</label>
+                <input type="email" name="email" class="form-control" value="{{ user.email|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Mobile Number</label>
+                <input type="text" name="mobile" class="form-control" value="{{ profile.mobile|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Gender</label>
+                <select name="gender" class="form-control">
+                    <option value="">Select gender</option>
+                    <option value="Male" {% if profile.gender == 'Male' %}selected{% endif %}>Male</option>
+                    <option value="Female" {% if profile.gender == 'Female' %}selected{% endif %}>Female</option>
+                    <option value="Prefer not to say" {% if profile.gender == 'Prefer not to say' %}selected{% endif %}>Prefer not to say</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Disability</label>
+                <select name="disability" class="form-control">
+                    <option value="">Select option</option>
+                    <option value="Yes" {% if profile.disability == 'Yes' %}selected{% endif %}>Yes</option>
+                    <option value="No" {% if profile.disability == 'No' %}selected{% endif %}>No</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>City</label>
+                <input type="text" name="city" class="form-control" value="{{ profile.city|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>State</label>
+                <input type="text" name="state" class="form-control" value="{{ profile.state|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Country</label>
+                <input type="text" name="country" class="form-control" value="{{ profile.country|default:'' }}">
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Resume Upload</h2>
+            <span>Auto parse</span>
+        </div>
+        <div class="upload-row">
+            <input type="file" name="resume" class="form-control" accept=".pdf">
+            <button type="submit" class="btn btn-secondary">Upload and Parse</button>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Skills and Links</h2>
+            <span>Used for matching</span>
+        </div>
+        <div class="form-group">
+            <label>Skills</label>
+            <textarea name="skills" class="form-control" rows="4" placeholder="Python, Django, Machine Learning">{{ profile.skills|default:'' }}</textarea>
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>LinkedIn URL</label>
+                <input type="url" name="linkedin_url" class="form-control" value="{{ profile.linkedin_url|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>GitHub URL</label>
+                <input type="url" name="github_url" class="form-control" value="{{ profile.github_url|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Portfolio URL</label>
+                <input type="url" name="portfolio_url" class="form-control" value="{{ profile.portfolio_url|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label>Additional URL Name</label>
+                <input type="text" name="additional_url_name" class="form-control" value="{{ profile.additional_url_name|default:'' }}" placeholder="Kaggle, Behance, Blog">
+            </div>
+            <div class="form-group">
+                <label>Additional URL</label>
+                <input type="url" name="additional_url" class="form-control" value="{{ profile.additional_url|default:'' }}">
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Education</h2>
+            <button type="button" class="btn btn-light" data-add-education>Add Education</button>
+        </div>
+        <div id="education-list" class="row-list">
+            {% for edu in educations %}
+                <div class="editable-row">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Institute Name</label>
+                            <input type="text" name="edu_institution[]" class="form-control" value="{{ edu.institution }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Degree</label>
+                            <input type="text" name="edu_degree[]" class="form-control" value="{{ edu.degree }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Specialization</label>
+                            <input type="text" name="edu_specialization[]" class="form-control" value="{{ edu.specialization|default:edu.stream }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" name="edu_location[]" class="form-control" value="{{ edu.location|default:edu.city }}">
+                        </div>
+                        <div class="form-group">
+                            <label>From</label>
+                            <input type="text" name="edu_start_date[]" class="form-control" value="{{ edu.start_date|default:'' }}" placeholder="Jan 2021">
+                        </div>
+                        <div class="form-group">
+                            <label>To</label>
+                            <input type="text" name="edu_end_date[]" class="form-control" value="{{ edu.end_date|default:'' }}" placeholder="May 2025">
+                        </div>
+                    </div>
+                    <label class="check-line">
+                        <input type="checkbox" name="edu_currently_pursuing[]" value="{{ forloop.counter0 }}" {% if edu.currently_pursuing %}checked{% endif %}>
+                        Currently pursuing
+                    </label>
+                </div>
+            {% empty %}
+                <div class="editable-row empty-row">Add education details or upload a resume to parse them automatically.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-title">
+            <h2>Experience</h2>
+            <button type="button" class="btn btn-light" data-add-experience>Add Experience</button>
+        </div>
+        <div id="experience-list" class="row-list">
+            {% for exp in experiences %}
+                <div class="editable-row">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Organization Name</label>
+                            <input type="text" name="exp_organization[]" class="form-control" value="{{ exp.organization|default:exp.company }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Role</label>
+                            <input type="text" name="exp_role[]" class="form-control" value="{{ exp.role }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <input type="text" name="exp_location[]" class="form-control" value="{{ exp.location|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Current CTC</label>
+                            <input type="text" name="exp_current_ctc[]" class="form-control" value="{{ exp.current_ctc|default:exp.ctc }}">
+                        </div>
+                        <div class="form-group">
+                            <label>From</label>
+                            <input type="text" name="exp_start_date[]" class="form-control" value="{{ exp.start_date|default:'' }}" placeholder="Jan 2023">
+                        </div>
+                        <div class="form-group">
+                            <label>To</label>
+                            <input type="text" name="exp_end_date[]" class="form-control" value="{{ exp.end_date|default:'' }}" placeholder="Present">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Summary</label>
+                        <textarea name="exp_summary[]" class="form-control" rows="3">{{ exp.summary|default:'' }}</textarea>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="editable-row empty-row">Add experience details or upload a resume to parse them automatically.</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% if resume_parsed.suggestions %}
+        <section class="panel">
+            <div class="section-title">
+                <h2>AI Suggestions</h2>
+                <span>Resume feedback</span>
+            </div>
+            <ul class="suggestion-list">
+                {% for suggestion in resume_parsed.suggestions %}
+                    <li>{{ suggestion }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
+
+    <div class="sticky-actions">
+        <button type="submit" class="btn btn-primary">Save Profile</button>
+        <a href="{% url 'portal:job_match' %}" class="btn btn-secondary">AutoMatch Jobs</a>
+    </div>
+</form>
+
+<template id="education-template">
+    <div class="editable-row">
+        <div class="form-grid">
+            <div class="form-group"><label>Institute Name</label><input type="text" name="edu_institution[]" class="form-control"></div>
+            <div class="form-group"><label>Degree</label><input type="text" name="edu_degree[]" class="form-control"></div>
+            <div class="form-group"><label>Specialization</label><input type="text" name="edu_specialization[]" class="form-control"></div>
+            <div class="form-group"><label>Location</label><input type="text" name="edu_location[]" class="form-control"></div>
+            <div class="form-group"><label>From</label><input type="text" name="edu_start_date[]" class="form-control" placeholder="Jan 2021"></div>
+            <div class="form-group"><label>To</label><input type="text" name="edu_end_date[]" class="form-control" placeholder="May 2025"></div>
+        </div>
+        <label class="check-line"><input type="checkbox" name="edu_currently_pursuing[]" value=""> Currently pursuing</label>
+    </div>
+</template>
+
+<template id="experience-template">
+    <div class="editable-row">
+        <div class="form-grid">
+            <div class="form-group"><label>Organization Name</label><input type="text" name="exp_organization[]" class="form-control"></div>
+            <div class="form-group"><label>Role</label><input type="text" name="exp_role[]" class="form-control"></div>
+            <div class="form-group"><label>Location</label><input type="text" name="exp_location[]" class="form-control"></div>
+            <div class="form-group"><label>Current CTC</label><input type="text" name="exp_current_ctc[]" class="form-control"></div>
+            <div class="form-group"><label>From</label><input type="text" name="exp_start_date[]" class="form-control" placeholder="Jan 2023"></div>
+            <div class="form-group"><label>To</label><input type="text" name="exp_end_date[]" class="form-control" placeholder="Present"></div>
+        </div>
+        <div class="form-group"><label>Summary</label><textarea name="exp_summary[]" class="form-control" rows="3"></textarea></div>
+    </div>
+</template>
+
+<script>
+const viewMode = document.getElementById('view-mode');
+const editMode = document.getElementById('edit-mode');
+const modeButtons = document.querySelectorAll('[data-profile-mode]');
+
+function setProfileMode(mode) {
+    const isEdit = mode === 'edit';
+    viewMode.hidden = isEdit;
+    editMode.hidden = !isEdit;
+    modeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.profileMode === mode);
+    });
+}
+
+function addRow(listId, templateId) {
+    const list = document.getElementById(listId);
+    const template = document.getElementById(templateId);
+    const empty = list.querySelector('.empty-row');
+    if (empty) empty.remove();
+    const node = template.content.cloneNode(true);
+    list.appendChild(node);
+    [...list.querySelectorAll('input[name="edu_currently_pursuing[]"]')].forEach((input, index) => {
+        input.value = index;
+    });
+}
+
+modeButtons.forEach((button) => {
+    button.addEventListener('click', () => setProfileMode(button.dataset.profileMode));
+});
+
+document.querySelector('[data-add-education]')?.addEventListener('click', () => addRow('education-list', 'education-template'));
+document.querySelector('[data-add-experience]')?.addEventListener('click', () => addRow('experience-list', 'experience-template'));
+</script>
+{% endblock %}

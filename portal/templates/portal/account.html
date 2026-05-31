@@ -1,0 +1,83 @@
+{% extends 'portal/base.html' %}
+{% block content %}
+<div class="container futuristic-bg py-5">
+  <h1 class="display-4 text-center mb-4">👤 Professional Profile</h1>
+  <ul class="nav nav-tabs mb-4" id="accountTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">📄 Overview</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="edu-tab" data-bs-toggle="tab" data-bs-target="#edu" type="button" role="tab">🎓 Education</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="exp-tab" data-bs-toggle="tab" data-bs-target="#exp" type="button" role="tab">💼 Work Experience</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <a class="nav-link" href="{% url 'portal:profile_builder' %}">⚙️ Edit Profile</a>
+    </li>
+  </ul>
+  <div class="tab-content" id="accountTabsContent">
+    <div class="tab-pane fade show active" id="overview" role="tabpanel">
+      <div class="row mb-4">
+        <div class="col-md-3 text-center">
+          {% if profile.image %}
+            <img src="{{ profile.image.url }}" class="img-fluid rounded" style="max-width:150px;">
+          {% else %}
+            <div class="alert alert-warning">No Profile Image</div>
+          {% endif %}
+        </div>
+        <div class="col-md-9">
+          <h2>{{ profile.full_name|default:'User Name' }}</h2>
+          <p>📧 <b>Email:</b> {{ profile.user.email }}</p>
+          <p>📞 <b>Mobile:</b> {{ profile.phone|default:'Not Set' }}</p>
+          <p>📍 <b>Location:</b> {{ profile.location|default:'Not Set' }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane fade" id="edu" role="tabpanel">
+      <h3>🎓 Educational History</h3>
+      {% if education %}
+        {% for edu in education %}
+          <div class="card mb-3 futuristic-card">
+            <div class="card-body">
+              <b>{{ edu.institution }}</b> ({{ edu.city }})<br>
+              {{ edu.degree }} in {{ edu.stream }}<br>
+              {{ edu.start_year }} - {{ edu.end_year }}<br>
+              Grade: {{ edu.grade|default:'N/A' }}<br>
+              Skills: {{ edu.skills|default:'None Listed' }}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="alert alert-info">No education records found.</div>
+      {% endif %}
+    </div>
+    <div class="tab-pane fade" id="exp" role="tabpanel">
+      <h3>💼 Work Experience</h3>
+      {% if experience %}
+        {% for exp in experience %}
+          <div class="card mb-3 futuristic-card">
+            <div class="card-body">
+              <b>{{ exp.company }}</b> - {{ exp.title }}<br>
+              {{ exp.start_date }} - {{ exp.end_date|default:'Present' }}<br>
+              {{ exp.description|default:'No description' }}
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="alert alert-info">No work experience records found.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+<script>
+  var triggerTabList = [].slice.call(document.querySelectorAll('#accountTabs button'));
+  triggerTabList.forEach(function (triggerEl) {
+    var tabTrigger = new bootstrap.Tab(triggerEl);
+    triggerEl.addEventListener('click', function (event) {
+      event.preventDefault();
+      tabTrigger.show();
+    });
+  });
+</script>
+{% endblock %}

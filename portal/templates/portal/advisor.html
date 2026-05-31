@@ -1,0 +1,67 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">Career Advisor</p>
+        <h1>AI Career Advisor</h1>
+    </div>
+    <a href="{% url 'portal:profile' %}" class="btn btn-secondary">Update Profile</a>
+</section>
+
+<section class="panel advisor-shell">
+    <div class="advisor-copy">
+        <h2>Ask a career question</h2>
+        <p class="muted">Advice is generated from your query plus your saved skills, education, experience, and parsed resume knowledge base.</p>
+    </div>
+
+    <form method="POST" class="advisor-form" id="advisor-form">
+        {% csrf_token %}
+        <textarea name="query" class="form-control advisor-input" rows="4" placeholder="Example: How should I prepare for a Django backend role in the next 30 days?" required>{{ query }}</textarea>
+        <button type="submit" class="btn btn-primary">Get Advice</button>
+    </form>
+
+    <div class="generation-state" id="generation-state" hidden>
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <p>Generating personalized career advice from your profile context...</p>
+    </div>
+</section>
+
+{% if formatted_response %}
+    <section class="advice-grid">
+        {% for section in formatted_response %}
+            <article class="panel advice-card">
+                <h2>{{ section.title }}</h2>
+                <div class="advice-text">{{ section.content|linebreaksbr }}</div>
+            </article>
+        {% endfor %}
+    </section>
+{% else %}
+    <section class="panel advisor-prompts">
+        <h2>Good questions to ask</h2>
+        <div class="prompt-grid">
+            <button type="button" class="prompt-chip">Which skills should I improve first?</button>
+            <button type="button" class="prompt-chip">How do I move into an AI engineer role?</button>
+            <button type="button" class="prompt-chip">Create a 30 day job preparation plan.</button>
+            <button type="button" class="prompt-chip">What roles match my resume best?</button>
+        </div>
+    </section>
+{% endif %}
+
+<script>
+const form = document.getElementById('advisor-form');
+const state = document.getElementById('generation-state');
+const input = document.querySelector('.advisor-input');
+
+form.addEventListener('submit', () => {
+    state.hidden = false;
+});
+
+document.querySelectorAll('.prompt-chip').forEach((button) => {
+    button.addEventListener('click', () => {
+        input.value = button.textContent.trim();
+        input.focus();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'portal/base.html' %}
+
+{% block content %}
+<section class="page-head">
+    <div>
+        <p class="eyebrow">AI Job Matching</p>
+        <h1>AutoMatch Jobs</h1>
+    </div>
+    <a href="{% url 'portal:profile' %}" class="btn btn-secondary">Edit Profile</a>
+</section>
+
+<section class="panel match-intro">
+    <div>
+        <h2>Find roles above 70% fit</h2>
+        <p class="muted">Matches are calculated from your parsed skills, education, experience, and job descriptions from live job sources.</p>
+    </div>
+    <form method="POST" class="match-search">
+        {% csrf_token %}
+        <input type="text" name="query" class="form-control" value="{{ query }}" placeholder="Python Developer, Data Analyst, Django Engineer">
+        <button type="submit" class="btn btn-primary">Run AutoMatch</button>
+    </form>
+</section>
+
+{% if not has_match_data %}
+    <section class="panel empty-state">
+        <h3>Complete your profile first</h3>
+        <p class="muted">Upload your resume or add skills and experience manually so AutoMatch has something meaningful to compare.</p>
+        <a href="{% url 'portal:profile' %}" class="btn btn-secondary">Build Profile</a>
+    </section>
+{% endif %}
+
+{% if searched %}
+    <section class="match-results">
+        {% for item in matched_jobs %}
+            <article class="panel match-card">
+                <div class="match-score">
+                    <strong>{{ item.score }}%</strong>
+                    <span>match</span>
+                </div>
+                <div class="match-body">
+                    <h3>{{ item.job.title }}</h3>
+                    <p class="muted">{{ item.job.company }} | {{ item.job.location }}</p>
+                    {% if item.matched_terms %}
+                        <div class="tag-row">
+                            {% for term in item.matched_terms %}
+                                <span class="tag">{{ term }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <a href="{{ item.job.link }}" target="_blank" class="btn btn-secondary">Apply</a>
+            </article>
+        {% empty %}
+            <section class="panel empty-state">
+                <h3>No jobs crossed 70%</h3>
+                <p class="muted">Try a more specific title, or add more skills and experience details to your profile.</p>
+            </section>
+        {% endfor %}
+    </section>
+{% endif %}
+{% endblock %}
