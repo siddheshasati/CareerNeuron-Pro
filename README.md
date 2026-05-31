@@ -54,13 +54,71 @@ flowchart TD
 
 ## Deployment
 
-This project is configured for deployment on free Python hosting platforms that support Django, including Render or Railway.
+This project is configured for deployment on free Python hosting platforms that support Django, including Render or Railway with PostgreSQL.
 
 ### Included deployment files
 - `Procfile` — runs Gunicorn for production.
 - `runtime.txt` — pins Python version.
-- `requirements.txt` — includes deployment dependencies like `gunicorn` and `whitenoise`.
-- `career_neuron/settings.py` — configured with WhiteNoise for static file serving.
+- `render.yaml` — Render-native config with PostgreSQL database.
+- `requirements.txt` — includes deployment dependencies like `gunicorn`, `whitenoise`, `dj-database-url`, and `psycopg2-binary`.
+- `career_neuron/settings.py` — configured with WhiteNoise, security headers, and `DATABASE_URL` support.
+
+### Deploy on Render (Recommended)
+
+#### Step 1: Push to GitHub
+```bash
+git add .
+git commit -m "Ready for production"
+git push origin main
+```
+
+#### Step 2: Connect to Render
+1. Go to [render.com](https://render.com/)
+2. Connect your GitHub account
+3. Select this repository
+4. Render will auto-detect `render.yaml` and provision:
+   - PostgreSQL database (free tier)
+   - Django web service (free tier)
+
+#### Step 3: Set required environment variables
+- In Render Dashboard > Environment Variables:
+  - `DJANGO_SECRET_KEY` — Generate one: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
+  - Other variables are pre-configured in `render.yaml`
+
+#### Step 4: Deploy
+- Render will automatically:
+  - Install dependencies
+  - Collect static files
+  - Run migrations
+  - Start the web service
+
+---
+
+### Deploy on Railway
+
+#### Step 1: Push to GitHub
+```bash
+git add .
+git commit -m "Ready for production"
+git push origin main
+```
+
+#### Step 2: Connect to Railway
+1. Go to [railway.app](https://railway.app/)
+2. Connect your GitHub account and create a new project
+3. Add PostgreSQL database service
+4. Add Python web service
+
+#### Step 3: Set environment variables
+In Railway Dashboard > Environment:
+- `DJANGO_SECRET_KEY` (generate one as shown above)
+- `DATABASE_URL` (Railway sets this automatically)
+- `DJANGO_DEBUG` = `0`
+
+#### Step 4: Configure start command
+- Start Command: `python manage.py migrate && gunicorn career_neuron.wsgi:application --log-file -`
+
+---
 
 ### Recommended deploy steps
 1. Create a GitHub repository and push the source code.
@@ -70,11 +128,9 @@ This project is configured for deployment on free Python hosting platforms that 
 5. Run migrations:
    - locally: `python manage.py migrate`
    - on Render: the included `render.yaml` uses `releaseCommand: python manage.py migrate`
-6. Start the web service using one of these commands:
+   - on Railway: configure in start command
+6. Start the web service using:
    - `gunicorn career_neuron.wsgi:application --log-file -`
-   - `gunicorn app:app --log-file -` (supported if using `app.py` in the repo)
-
-If Render is still using the default command `gunicorn app:app`, use the included `app.py` file or set the start command manually in Render.
 
 ## Local setup
 
