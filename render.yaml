@@ -26,4 +26,6 @@ services:
         value: "False"
       - key: DJANGO_ALLOWED_HOSTS
         value: careerneuron-pro.onrender.com,www.careerneuron-pro.onrender.com
+      - key: RUN_MIGRATIONS_ON_STARTUP
+        value: "true"
     autoDeploy: true
