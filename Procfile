@@ -1,1 +1,1 @@
-web: gunicorn career_neuron.wsgi --log-file -
+web: gunicorn career_neuron.wsgi:application --log-file -
