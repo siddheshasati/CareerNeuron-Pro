@@ -24,24 +24,23 @@ def send_portal_email(subject, body, to_email):
     # 1. Try Resend HTTP API if configured (bypasses Render SMTP port blocking)
     resend_api_key = os.getenv("RESEND_API_KEY")
     if resend_api_key:
-        try:
-            url = "https://api.resend.com/emails"
-            headers = {
-                "Authorization": f"Bearer {resend_api_key}",
-                "Content-Type": "application/json"
-            }
-            from_email = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
-            data = {
-                "from": from_email,
-                "to": [to_email],
-                "subject": subject,
-                "text": body
-            }
-            response = requests.post(url, json=data, headers=headers, timeout=10)
-            if response.status_code in (200, 201):
-                return True
-        except Exception as e:
-            print(f"Resend HTTP API failed: {e}")
+        url = "https://api.resend.com/emails"
+        headers = {
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        }
+        from_email = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+        data = {
+            "from": from_email,
+            "to": [to_email],
+            "subject": subject,
+            "text": body
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=10)
+        if response.status_code in (200, 201):
+            return True
+        else:
+            raise Exception(f"Resend API Error (Status {response.status_code}): {response.text}")
 
     # 2. Fall back to standard Django SMTP
     send_mail(
