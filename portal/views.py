@@ -17,6 +17,7 @@ from .profile_utils import (
     score_job_match,
 )
 
+import os
 import requests
 
 def send_portal_email(subject, body, to_email):
