@@ -27,66 +27,10 @@
 
     <div style="text-align: center; margin-top: 2rem;">
         <form method="GET" action="{% url 'portal:register' %}" style="display: inline;">
-            <button type="submit" class="btn btn-secondary" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.3); color: #fff; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">
+            <button type="submit" class="btn btn-secondary">
                 Back to Email Entry
             </button>
         </form>
     </div>
 </div>
-
-<style>
-.btn-primary {
-    background: linear-gradient(135deg, #00f0ff 0%, #7c3aed 100%);
-    color: #fff;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 240, 255, 0.3);
-}
-
-.form-control {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(0, 240, 255, 0.3);
-    padding: 0.75rem;
-    border-radius: 8px;
-    color: #fff;
-    font-size: 1rem;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: #00f0ff;
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
-}
-
-.form-control::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-}
-
-.form-group {
-    margin-bottom: 1.5rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: #fff;
-    font-weight: 500;
-}
-
-.glass-panel {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(0, 240, 255, 0.2);
-    border-radius: 12px;
-    padding: 2rem;
-}
-</style>
 {% endblock %}
