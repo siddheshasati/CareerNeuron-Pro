@@ -2,7 +2,7 @@
 
 **Live Deployed Application**: [https://careerneuron-pro.onrender.com](https://careerneuron-pro.onrender.com)
 
-CareerNeuron-Pro is a state-of-the-art, Django-based AI-powered career portal. It seamlessly integrates modern web application architectures with advanced artificial intelligence pipelines, semantic vector similarity matching, live job feed scrapers, and resilient notification networks to automate resume analysis, optimize ATS scoring, generate personalized career advice, and simulate mock interviews.
+CareerNeuron-Pro is a state-of-the-art, Django-based AI-powered career portal. It seamlessly integrates modern web application architectures with advanced artificial intelligence pipelines, structured relational retrieval, live job feed scrapers, and resilient notification networks to automate resume analysis, optimize ATS scoring, generate personalized career advice, and simulate mock interviews.
 
 ---
 
@@ -11,12 +11,13 @@ CareerNeuron-Pro is a state-of-the-art, Django-based AI-powered career portal. I
 1. [About CareerNeuron](#-about-careerneuron)
 2. [Core Features](#-core-features)
 3. [System Architecture](#%EF%B8%8F-system-architecture)
-4. [Key Workflows](#-key-workflows)
-5. [Database Schema](#-database-schema)
-6. [Tech Stack](#-tech-stack)
-7. [Installation & Setup](#-installation--setup)
-8. [SMTP & Email API Troubleshooting (Render)](#-smtp--email-api-troubleshooting-render)
-9. [Configuration Reference](#-configuration-reference)
+4. [Structured RAG & PostgreSQL Core (No Vector DB Needed)](#%EF%B8%8F-structured-rag--postgresql-core-no-vector-db-needed)
+5. [Key Workflows](#-key-workflows)
+6. [Database Schema](#-database-schema)
+7. [Tech Stack](#-tech-stack)
+8. [Installation & Setup](#-installation--setup)
+9. [SMTP & Email API Troubleshooting (Render)](#-smtp--email-api-troubleshooting-render)
+10. [Configuration Reference](#-configuration-reference)
 
 ---
 
@@ -34,7 +35,7 @@ CareerNeuron-Pro is a state-of-the-art, Django-based AI-powered career portal. I
 
 ## ✨ Core Features
 
-* **Multi-Step OTP Verification**: High-security user onboarding secured by OTP tokens dispatched via SMTP or custom HTTP APIs.
+* **Multi-Step OTP Verification**: High-security user onboarding secured by OTP tokens dispatched via SMTP or secure HTTP APIs.
 * **Automatic PDF Resumer Extraction**: Fully pulls user profiles, work durations, locations, and descriptions.
 * **Conversational AI Career Advisor**: Tailored recommendations answering user-specific career path questions.
 * **Custom Cover Letter Generator**: Writes highly tailored cover letters for any target job description.
@@ -72,7 +73,7 @@ flowchart TD
         K[Adzuna, Jooble, SerpAPI Keys]
     end
 
-    subgraph Relational Database
+    subgraph Relational Database [Structured Storage]
         L[(PostgreSQL - Production)]
         M[(SQLite - Development)]
     end
@@ -95,6 +96,49 @@ flowchart TD
 * **Security & Resilience**: Utilizes `DatabaseErrorCatchMiddleware` to detect and run pending migrations if a postgres database table is missing during runtime.
 * **Signed Cookies Session Store**: Employs cookie-based signed sessions (`signed_cookies`) to eliminate session validation database calls, allowing the app to handle database traffic spikes smoothly.
 * **Socket Timeout Guard**: Configured with global 10-second socket timeouts to safeguard Gunicorn server threads against hanging external network integrations.
+
+---
+
+## ⚙️ Structured RAG & PostgreSQL Core (No Vector DB Needed)
+
+Unlike generic LLM applications that rely on chunking text files and computing similarity matrices in a vector database, CareerNeuron-Pro implements a **Structured Relational RAG (Retrieval-Augmented Generation)** architecture powered entirely by PostgreSQL (production) or SQLite (local development).
+
+### 1. Why ChromaDB is Not Actively Used
+Although configuration lines and package requirements for ChromaDB (`chromadb`) exist in the codebase for potential future scale, it is **not actively queried** at runtime. 
+* **Compute Overhead**: Running vector engines inside free-tier cloud containers (like Render) introduces high memory usage and latency.
+* **Lack of Precision**: Traditional vector searches split documents into arbitrary text chunks, which can lose vital context such as job durations, degree levels, or contact details. 
+* **Database Efficiency**: Relational schemas guarantee precise retrieval without requiring dedicated semantic embedding lookup clusters.
+
+### 2. How PostgreSQL Powers Structured RAG
+Instead of unstructured vector chunks, the user’s resume data is parsed once into normalized relational tables inside PostgreSQL:
+
+```
+[Resume PDF] ──► [Groq Parser] ──► [PostgreSQL Schema]
+                                         ├── portal_userprofile
+                                         ├── portal_education
+                                         └── portal_experience
+```
+
+When the user asks a career question or starts an interview, the backend performs the following steps:
+
+1. **Retrieval**: Queries the database to retrieve the logged-in user's profile context (`profile.educations.all()`, `profile.experiences.all()`, `profile.skills`).
+2. **Augmentation (Prompt Stuffing)**: Formats this relational data into an clean candidate context block using `build_career_profile_context()`:
+   ```python
+   # Example Context Generated
+   Name: John Doe
+   Skills: python, django, rest api
+   Education:
+   - B.Tech in Computer Science at University (2022 - 2026)
+   Experience:
+   - Backend Intern at TechCorp: Assisted with database modeling.
+   ```
+3. **Generation**: Merges the custom query (the user's advice request or interview reply) with the context block, submitting a fully augmented context package to Groq LLM.
+
+### 3. Job Match Scorer (Syntactic Scoring)
+In place of cosine distance similarity calculations, the portal matches scraped listings using a deterministic scoring algorithm in [portal/profile_utils.py](file:///c:/Users/siddh\OneDrive\Documents\Projects\Job Listing Scraper\portal\profile_utils.py):
+* Pulls up to 20 unique key terms from the candidate profile.
+* Scans the job title, description, and location of scraper results.
+* Scores matches based on word frequency, key matching intersections, and string ratio metrics using `difflib.SequenceMatcher`.
 
 ---
 
