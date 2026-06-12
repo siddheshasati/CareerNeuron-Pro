@@ -17,6 +17,41 @@ from .profile_utils import (
     score_job_match,
 )
 
+import requests
+
+def send_portal_email(subject, body, to_email):
+    # 1. Try Resend HTTP API if configured (bypasses Render SMTP port blocking)
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    if resend_api_key:
+        try:
+            url = "https://api.resend.com/emails"
+            headers = {
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json"
+            }
+            from_email = os.getenv("RESEND_FROM_EMAIL", "onboarding@resend.dev")
+            data = {
+                "from": from_email,
+                "to": [to_email],
+                "subject": subject,
+                "text": body
+            }
+            response = requests.post(url, json=data, headers=headers, timeout=10)
+            if response.status_code in (200, 201):
+                return True
+        except Exception as e:
+            print(f"Resend HTTP API failed: {e}")
+
+    # 2. Fall back to standard Django SMTP
+    send_mail(
+        subject,
+        body,
+        settings.DEFAULT_FROM_EMAIL,
+        [to_email],
+        fail_silently=False,
+    )
+    return True
+
 def login_view(request):
     if request.user.is_authenticated:
         return redirect('portal:dashboard')
@@ -355,12 +390,10 @@ def smtp_test_view(request):
         test_email = request.POST.get('test_email')
         if test_email:
             try:
-                send_mail(
+                send_portal_email(
                     'SMTP Test - Pro Job Portal',
                     'This is a test email to verify SMTP configuration is working.',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [test_email],
-                    fail_silently=False,
+                    test_email,
                 )
                 messages.success(request, f"Test email sent to {test_email} successfully!")
             except Exception as e:
@@ -425,12 +458,10 @@ def register_step1_view(request):
         )
 
         try:
-            send_mail(
+            send_portal_email(
                 'Your OTP for Registration - Career Neuron',
                 f'Your One-Time Password is: {otp_code}\n\nThis OTP will expire in 10 minutes.\n\nDo not share this code with anyone.',
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,
+                email,
             )
             messages.success(request, f"OTP sent to {email}. Check your inbox.")
             request.session['registration_email'] = email
