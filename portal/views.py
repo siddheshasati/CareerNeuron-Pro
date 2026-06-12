@@ -449,123 +449,135 @@ def register_step1_view(request):
 
 
 def verify_otp_view(request):
-    email = request.session.get('registration_email')
+    from django.http import HttpResponse
+    import traceback
+    try:
+        email = request.session.get('registration_email')
 
-    if not email:
-        messages.error(request, "Please start registration from the beginning.")
-        return redirect('portal:register')
-
-    if request.method == 'POST':
-        otp_code = request.POST.get('otp_code')
-
-        try:
-            otp_token = OTPToken.objects.get(email=email)
-
-            if otp_token.otp_code == otp_code:
-                if not otp_token.is_valid():
-                    messages.error(request, "OTP expired or too many attempts.")
-                    OTPToken.objects.filter(email=email).delete()
-                    del request.session['registration_email']
-                    return redirect('portal:register')
-
-                otp_token.is_verified = True
-                otp_token.save()
-                request.session['otp_verified'] = True
-                messages.success(request, "Email verified successfully!")
-                return redirect('portal:register_step2')
-            else:
-                otp_token.attempts += 1
-                otp_token.save()
-                remaining = 5 - otp_token.attempts
-                if remaining > 0:
-                    messages.error(request, f"Invalid OTP. {remaining} attempts remaining.")
-                else:
-                    messages.error(request, "Too many attempts. Please register again.")
-                    OTPToken.objects.filter(email=email).delete()
-                    del request.session['registration_email']
-                    return redirect('portal:register')
-        except OTPToken.DoesNotExist:
-            messages.error(request, "OTP not found. Please register again.")
+        if not email:
+            messages.error(request, "Please start registration from the beginning.")
             return redirect('portal:register')
 
-    return render(request, 'portal/verify_otp.html', {'email': email})
+        if request.method == 'POST':
+            otp_code = request.POST.get('otp_code')
+
+            try:
+                otp_token = OTPToken.objects.get(email=email)
+
+                if otp_token.otp_code == otp_code:
+                    if not otp_token.is_valid():
+                        messages.error(request, "OTP expired or too many attempts.")
+                        OTPToken.objects.filter(email=email).delete()
+                        del request.session['registration_email']
+                        return redirect('portal:register')
+
+                    otp_token.is_verified = True
+                    otp_token.save()
+                    request.session['otp_verified'] = True
+                    messages.success(request, "Email verified successfully!")
+                    return redirect('portal:register_step2')
+                else:
+                    otp_token.attempts += 1
+                    otp_token.save()
+                    remaining = 5 - otp_token.attempts
+                    if remaining > 0:
+                        messages.error(request, f"Invalid OTP. {remaining} attempts remaining.")
+                    else:
+                        messages.error(request, "Too many attempts. Please register again.")
+                        OTPToken.objects.filter(email=email).delete()
+                        del request.session['registration_email']
+                        return redirect('portal:register')
+            except OTPToken.DoesNotExist:
+                messages.error(request, "OTP not found. Please register again.")
+                return redirect('portal:register')
+
+        return render(request, 'portal/verify_otp.html', {'email': email})
+    except Exception as e:
+        tb = traceback.format_exc()
+        return HttpResponse(f"<h3>Internal Server Error Traceback (Verify OTP)</h3><pre>{tb}</pre>", status=500)
 
 
 def register_step2_view(request):
-    email = request.session.get('registration_email')
-    otp_verified = request.session.get('otp_verified')
+    from django.http import HttpResponse
+    import traceback
+    try:
+        email = request.session.get('registration_email')
+        otp_verified = request.session.get('otp_verified')
 
-    if not email or not otp_verified:
-        messages.error(request, "Please complete email verification first.")
-        return redirect('portal:register')
+        if not email or not otp_verified:
+            messages.error(request, "Please complete email verification first.")
+            return redirect('portal:register')
 
-    if request.method == 'POST':
-        mobile = request.POST.get('mobile')
-        first_name = request.POST.get('first_name', '').strip()
-        last_name = request.POST.get('last_name', '').strip()
-        gender = request.POST.get('gender', '')
-        disability = request.POST.get('disability', '')
-        password = request.POST.get('password')
-        password_confirm = request.POST.get('password_confirm')
-        role = request.POST.get('role', 'User')
+        if request.method == 'POST':
+            mobile = request.POST.get('mobile')
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            gender = request.POST.get('gender', '')
+            disability = request.POST.get('disability', '')
+            password = request.POST.get('password')
+            password_confirm = request.POST.get('password_confirm')
+            role = request.POST.get('role', 'User')
 
-        if password != password_confirm:
-            messages.error(request, "Passwords do not match.")
-            return redirect('portal:register_step2')
+            if password != password_confirm:
+                messages.error(request, "Passwords do not match.")
+                return redirect('portal:register_step2')
 
-        if len(password) < 6:
-            messages.error(request, "Password must be at least 6 characters.")
-            return redirect('portal:register_step2')
+            if len(password) < 6:
+                messages.error(request, "Password must be at least 6 characters.")
+                return redirect('portal:register_step2')
 
-        try:
-            user = User.objects.create_user(
-                username=email,
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
-            )
-            profile = UserProfile.objects.create(
-                user=user,
-                mobile=mobile,
-                role=role,
-                full_name=f"{first_name} {last_name}".strip(),
-                gender=gender,
-                disability=disability,
-            )
+            try:
+                user = User.objects.create_user(
+                    username=email,
+                    email=email,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                )
+                profile = UserProfile.objects.create(
+                    user=user,
+                    mobile=mobile,
+                    role=role,
+                    full_name=f"{first_name} {last_name}".strip(),
+                    gender=gender,
+                    disability=disability,
+                )
 
-            if 'resume' in request.FILES:
-                profile.resume = request.FILES['resume']
-                profile.save()
+                if 'resume' in request.FILES:
+                    profile.resume = request.FILES['resume']
+                    profile.save()
 
-                try:
-                    text = extract_resume_text(profile.resume.path)
-                    engine = AIEngine()
-                    ai_data = engine.analyze_resume(text)
-                    parsed_data = merge_resume_data(ai_data, parse_resume_fallback(text))
+                    try:
+                        text = extract_resume_text(profile.resume.path)
+                        engine = AIEngine()
+                        ai_data = engine.analyze_resume(text)
+                        parsed_data = merge_resume_data(ai_data, parse_resume_fallback(text))
 
-                    if parsed_data:
-                        if first_name:
-                            parsed_data['first_name'] = first_name
-                        if last_name:
-                            parsed_data['last_name'] = last_name
-                        parsed_data['email'] = email
-                        parsed_data['mobile'] = mobile
-                        save_parsed_resume(profile, parsed_data, registration_email=email, registration_mobile=mobile)
-                        messages.success(request, "Resume uploaded, parsed, and saved to your profile.")
-                except Exception as e:
-                    print(f"Error processing resume: {e}")
+                        if parsed_data:
+                            if first_name:
+                                parsed_data['first_name'] = first_name
+                            if last_name:
+                                parsed_data['last_name'] = last_name
+                            parsed_data['email'] = email
+                            parsed_data['mobile'] = mobile
+                            save_parsed_resume(profile, parsed_data, registration_email=email, registration_mobile=mobile)
+                            messages.success(request, "Resume uploaded, parsed, and saved to your profile.")
+                    except Exception as e:
+                        print(f"Error processing resume: {e}")
 
-            OTPToken.objects.filter(email=email).delete()
-            if 'registration_email' in request.session:
-                del request.session['registration_email']
-            if 'otp_verified' in request.session:
-                del request.session['otp_verified']
+                OTPToken.objects.filter(email=email).delete()
+                if 'registration_email' in request.session:
+                    del request.session['registration_email']
+                if 'otp_verified' in request.session:
+                    del request.session['otp_verified']
 
-            messages.success(request, "Registration successful! Please login.")
-            return redirect('portal:login')
-        except Exception as e:
-            messages.error(request, f"Registration failed: {str(e)}")
-            return redirect('portal:register_step2')
+                messages.success(request, "Registration successful! Please login.")
+                return redirect('portal:login')
+            except Exception as e:
+                messages.error(request, f"Registration failed: {str(e)}")
+                return redirect('portal:register_step2')
 
-    return render(request, 'portal/register_step2.html', {'email': email})
+        return render(request, 'portal/register_step2.html', {'email': email})
+    except Exception as e:
+        tb = traceback.format_exc()
+        return HttpResponse(f"<h3>Internal Server Error Traceback (Register Step 2)</h3><pre>{tb}</pre>", status=500)

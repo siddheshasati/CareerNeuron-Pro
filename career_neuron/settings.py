@@ -66,6 +66,10 @@ if DATABASE_URL:
     DATABASES = {
         "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
+    if "postgresql" in DATABASES["default"]["ENGINE"]:
+        DATABASES["default"]["OPTIONS"] = {
+            "sslmode": "require",
+        }
 else:
     DATABASES = {
         "default": {
@@ -73,6 +77,8 @@ else:
             "NAME": str(DEFAULT_SQLITE_DB_PATH),
         }
     }
+
+SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 
 MEDIA_ROOT = BASE_DIR / "uploads"
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
