@@ -408,36 +408,42 @@ def register_step1_view(request):
         return redirect('portal:dashboard')
 
     if request.method == 'POST':
-        email = request.POST.get('email')
-
-        if User.objects.filter(username=email).exists():
-            messages.error(request, "Email already registered.")
-            return redirect('portal:register')
-
-        otp_code = str(secrets.randbelow(1000000)).zfill(6)
-        expires_at = timezone.now() + timedelta(minutes=10)
-
-        OTPToken.objects.filter(email=email).delete()
-        OTPToken.objects.create(
-            email=email,
-            otp_code=otp_code,
-            expires_at=expires_at
-        )
-
+        from django.http import HttpResponse
+        import traceback
         try:
-            send_mail(
-                'Your OTP for Registration - Career Neuron',
-                f'Your One-Time Password is: {otp_code}\n\nThis OTP will expire in 10 minutes.\n\nDo not share this code with anyone.',
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-                fail_silently=False,
+            email = request.POST.get('email')
+
+            if User.objects.filter(username=email).exists():
+                messages.error(request, "Email already registered.")
+                return redirect('portal:register')
+
+            otp_code = str(secrets.randbelow(1000000)).zfill(6)
+            expires_at = timezone.now() + timedelta(minutes=10)
+
+            OTPToken.objects.filter(email=email).delete()
+            OTPToken.objects.create(
+                email=email,
+                otp_code=otp_code,
+                expires_at=expires_at
             )
-            messages.success(request, f"OTP sent to {email}. Check your inbox.")
-            request.session['registration_email'] = email
-            return redirect('portal:verify_otp')
+
+            try:
+                send_mail(
+                    'Your OTP for Registration - Career Neuron',
+                    f'Your One-Time Password is: {otp_code}\n\nThis OTP will expire in 10 minutes.\n\nDo not share this code with anyone.',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [email],
+                    fail_silently=False,
+                )
+                messages.success(request, f"OTP sent to {email}. Check your inbox.")
+                request.session['registration_email'] = email
+                return redirect('portal:verify_otp')
+            except Exception as e:
+                messages.error(request, f"Failed to send OTP: {str(e)}")
+                return redirect('portal:register')
         except Exception as e:
-            messages.error(request, f"Failed to send OTP: {str(e)}")
-            return redirect('portal:register')
+            tb = traceback.format_exc()
+            return HttpResponse(f"<h3>Internal Server Error Traceback</h3><pre>{tb}</pre>", status=500)
 
     return render(request, 'portal/register_step1.html')
 
