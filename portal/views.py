@@ -581,3 +581,17 @@ def register_step2_view(request):
     except Exception as e:
         tb = traceback.format_exc()
         return HttpResponse(f"<h3>Internal Server Error Traceback (Register Step 2)</h3><pre>{tb}</pre>", status=500)
+
+
+def test_db_view(request):
+    from django.db import connection
+    from django.http import HttpResponse
+    import traceback
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            row = cursor.fetchone()
+        return HttpResponse(f"<h3>Database Connection Successful!</h3>Query result: <code>{row}</code>")
+    except Exception as e:
+        tb = traceback.format_exc()
+        return HttpResponse(f"<h3>Database Connection Failed!</h3><p>Error: {str(e)}</p><pre>{tb}</pre>", status=500)

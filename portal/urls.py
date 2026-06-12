@@ -16,4 +16,5 @@ urlpatterns = [
     path("cover-letter/", views.cover_letter_view, name="cover_letter"),
     path("job-match/", views.job_match_view, name="job_match"),
     path("api/interview/", views.interview_api, name="interview_api"),
+    path("test-db/", views.test_db_view, name="test_db"),
 ]
