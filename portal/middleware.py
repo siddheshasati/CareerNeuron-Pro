@@ -11,7 +11,7 @@ class DatabaseErrorCatchMiddleware(MiddlewareMixin):
     def process_exception(self, request, exception):
         if isinstance(exception, (OperationalError, DatabaseError)):
             message = str(exception)
-            if "no such table" in message or "auth_user" in message or "relation \"auth_user\"" in message:
+            if "no such table" in message or "auth_user" in message or "relation" in message or "does not exist" in message:
                 try:
                     logger.info("Database table missing. Attempting automatic migration...")
                     call_command("migrate", interactive=False)
