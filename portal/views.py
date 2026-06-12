@@ -21,7 +21,28 @@ import os
 import requests
 
 def send_portal_email(subject, body, to_email):
-    # 1. Try Resend HTTP API if configured (bypasses Render SMTP port blocking)
+    # 1. Try Brevo HTTP API if configured (supports sending to anyone without custom domain)
+    brevo_api_key = os.getenv("BREVO_API_KEY")
+    if brevo_api_key:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "api-key": brevo_api_key,
+            "Content-Type": "application/json"
+        }
+        sender_email = os.getenv("BREVO_SENDER_EMAIL", "mechautocutyeah@gmail.com")
+        data = {
+            "sender": {"email": sender_email},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "textContent": body
+        }
+        response = requests.post(url, json=data, headers=headers, timeout=10)
+        if response.status_code in (200, 201):
+            return True
+        else:
+            raise Exception(f"Brevo API Error (Status {response.status_code}): {response.text}")
+
+    # 2. Try Resend HTTP API if configured (bypasses Render SMTP port blocking)
     resend_api_key = os.getenv("RESEND_API_KEY")
     if resend_api_key:
         url = "https://api.resend.com/emails"
