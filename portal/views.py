@@ -587,11 +587,55 @@ def test_db_view(request):
     from django.db import connection
     from django.http import HttpResponse
     import traceback
+    
+    html = ["<h3>Database Diagnosis</h3>"]
+    
     try:
+        # 1. Test basic connection
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1;")
             row = cursor.fetchone()
-        return HttpResponse(f"<h3>Database Connection Successful!</h3>Query result: <code>{row}</code>")
+            html.append(f"<p>Basic connection test (SELECT 1): <b>SUCCESS</b>. Result: {row}</p>")
+            
+        # 2. Get list of tables
+        with connection.cursor() as cursor:
+            # Query depending on DB type
+            db_engine = connection.settings_dict['ENGINE']
+            html.append(f"<p>Database Engine: <code>{db_engine}</code></p>")
+            if 'sqlite' in db_engine:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            else:
+                cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public';")
+            tables = [r[0] for r in cursor.fetchall()]
+            html.append(f"<p>Existing tables: <code>{', '.join(tables)}</code></p>")
+            
+        # 3. Test querying auth_user table
+        try:
+            from django.contrib.auth.models import User
+            count = User.objects.count()
+            html.append(f"<p>Query auth_user count: <b>SUCCESS</b>. Total users: {count}</p>")
+        except Exception as e:
+            html.append(f"<p style='color:red'>Query auth_user failed: {str(e)}</p>")
+            
+        # 4. Test querying portal_otptoken table
+        try:
+            from portal.models import OTPToken
+            count = OTPToken.objects.count()
+            html.append(f"<p>Query portal_otptoken count: <b>SUCCESS</b>. Total OTPs: {count}</p>")
+        except Exception as e:
+            html.append(f"<p style='color:red'>Query portal_otptoken failed: {str(e)}</p>")
+            
+        # 5. Test querying django_session table
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT COUNT(*) FROM django_session;")
+                session_count = cursor.fetchone()[0]
+            html.append(f"<p>Query django_session count: <b>SUCCESS</b>. Total sessions: {session_count}</p>")
+        except Exception as e:
+            html.append(f"<p style='color:red'>Query django_session failed: {str(e)}</p>")
+            
+        return HttpResponse("\n".join(html))
     except Exception as e:
         tb = traceback.format_exc()
-        return HttpResponse(f"<h3>Database Connection Failed!</h3><p>Error: {str(e)}</p><pre>{tb}</pre>", status=500)
+        html.append(f"<h3 style='color:red'>Diagnosis Failed!</h3><p>Error: {str(e)}</p><pre>{tb}</pre>")
+        return HttpResponse("\n".join(html), status=500)

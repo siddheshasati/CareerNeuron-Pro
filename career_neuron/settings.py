@@ -13,7 +13,7 @@ allowed_hosts = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1
 render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 if render_host and render_host not in allowed_hosts:
     allowed_hosts.append(render_host)
-ALLOWED_HOSTS = allowed_hosts
+ALLOWED_HOSTS = ["*"] if DEBUG else allowed_hosts
 
 INSTALLED_APPS = [
     "django.contrib.admin",
