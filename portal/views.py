@@ -408,235 +408,162 @@ def register_step1_view(request):
         return redirect('portal:dashboard')
 
     if request.method == 'POST':
-        from django.http import HttpResponse
-        import traceback
+        email = request.POST.get('email')
+
+        if User.objects.filter(username=email).exists():
+            messages.error(request, "Email already registered.")
+            return redirect('portal:register')
+
+        otp_code = str(secrets.randbelow(1000000)).zfill(6)
+        expires_at = timezone.now() + timedelta(minutes=10)
+
+        OTPToken.objects.filter(email=email).delete()
+        OTPToken.objects.create(
+            email=email,
+            otp_code=otp_code,
+            expires_at=expires_at
+        )
+
         try:
-            email = request.POST.get('email')
-
-            if User.objects.filter(username=email).exists():
-                messages.error(request, "Email already registered.")
-                return redirect('portal:register')
-
-            otp_code = str(secrets.randbelow(1000000)).zfill(6)
-            expires_at = timezone.now() + timedelta(minutes=10)
-
-            OTPToken.objects.filter(email=email).delete()
-            OTPToken.objects.create(
-                email=email,
-                otp_code=otp_code,
-                expires_at=expires_at
+            send_mail(
+                'Your OTP for Registration - Career Neuron',
+                f'Your One-Time Password is: {otp_code}\n\nThis OTP will expire in 10 minutes.\n\nDo not share this code with anyone.',
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=False,
             )
-
-            try:
-                send_mail(
-                    'Your OTP for Registration - Career Neuron',
-                    f'Your One-Time Password is: {otp_code}\n\nThis OTP will expire in 10 minutes.\n\nDo not share this code with anyone.',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [email],
-                    fail_silently=False,
-                )
-                messages.success(request, f"OTP sent to {email}. Check your inbox.")
-                request.session['registration_email'] = email
-                return redirect('portal:verify_otp')
-            except Exception as e:
-                messages.warning(request, f"Failed to send email ({str(e)}). [Debug Fallback] Your OTP is: {otp_code}")
-                request.session['registration_email'] = email
-                return redirect('portal:verify_otp')
+            messages.success(request, f"OTP sent to {email}. Check your inbox.")
+            request.session['registration_email'] = email
+            return redirect('portal:verify_otp')
         except Exception as e:
-            tb = traceback.format_exc()
-            return HttpResponse(f"<h3>Internal Server Error Traceback</h3><pre>{tb}</pre>", status=200)
+            messages.warning(request, f"Failed to send email ({str(e)}). [Debug Fallback] Your OTP is: {otp_code}")
+            request.session['registration_email'] = email
+            return redirect('portal:verify_otp')
 
     return render(request, 'portal/register_step1.html')
 
 
 def verify_otp_view(request):
-    from django.http import HttpResponse
-    import traceback
-    try:
-        email = request.session.get('registration_email')
+    email = request.session.get('registration_email')
 
-        if not email:
-            messages.error(request, "Please start registration from the beginning.")
+    if not email:
+        messages.error(request, "Please start registration from the beginning.")
+        return redirect('portal:register')
+
+    if request.method == 'POST':
+        otp_code = request.POST.get('otp_code')
+
+        try:
+            otp_token = OTPToken.objects.get(email=email)
+
+            if otp_token.otp_code == otp_code:
+                if not otp_token.is_valid():
+                    messages.error(request, "OTP expired or too many attempts.")
+                    OTPToken.objects.filter(email=email).delete()
+                    del request.session['registration_email']
+                    return redirect('portal:register')
+
+                otp_token.is_verified = True
+                otp_token.save()
+                request.session['otp_verified'] = True
+                messages.success(request, "Email verified successfully!")
+                return redirect('portal:register_step2')
+            else:
+                otp_token.attempts += 1
+                otp_token.save()
+                remaining = 5 - otp_token.attempts
+                if remaining > 0:
+                    messages.error(request, f"Invalid OTP. {remaining} attempts remaining.")
+                else:
+                    messages.error(request, "Too many attempts. Please register again.")
+                    OTPToken.objects.filter(email=email).delete()
+                    del request.session['registration_email']
+                    return redirect('portal:register')
+        except OTPToken.DoesNotExist:
+            messages.error(request, "OTP not found. Please register again.")
             return redirect('portal:register')
 
-        if request.method == 'POST':
-            otp_code = request.POST.get('otp_code')
-
-            try:
-                otp_token = OTPToken.objects.get(email=email)
-
-                if otp_token.otp_code == otp_code:
-                    if not otp_token.is_valid():
-                        messages.error(request, "OTP expired or too many attempts.")
-                        OTPToken.objects.filter(email=email).delete()
-                        del request.session['registration_email']
-                        return redirect('portal:register')
-
-                    otp_token.is_verified = True
-                    otp_token.save()
-                    request.session['otp_verified'] = True
-                    messages.success(request, "Email verified successfully!")
-                    return redirect('portal:register_step2')
-                else:
-                    otp_token.attempts += 1
-                    otp_token.save()
-                    remaining = 5 - otp_token.attempts
-                    if remaining > 0:
-                        messages.error(request, f"Invalid OTP. {remaining} attempts remaining.")
-                    else:
-                        messages.error(request, "Too many attempts. Please register again.")
-                        OTPToken.objects.filter(email=email).delete()
-                        del request.session['registration_email']
-                        return redirect('portal:register')
-            except OTPToken.DoesNotExist:
-                messages.error(request, "OTP not found. Please register again.")
-                return redirect('portal:register')
-
-        return render(request, 'portal/verify_otp.html', {'email': email})
-    except Exception as e:
-        tb = traceback.format_exc()
-        return HttpResponse(f"<h3>Internal Server Error Traceback (Verify OTP)</h3><pre>{tb}</pre>", status=200)
+    return render(request, 'portal/verify_otp.html', {'email': email})
 
 
 def register_step2_view(request):
-    from django.http import HttpResponse
-    import traceback
-    try:
-        email = request.session.get('registration_email')
-        otp_verified = request.session.get('otp_verified')
+    email = request.session.get('registration_email')
+    otp_verified = request.session.get('otp_verified')
 
-        if not email or not otp_verified:
-            messages.error(request, "Please complete email verification first.")
-            return redirect('portal:register')
+    if not email or not otp_verified:
+        messages.error(request, "Please complete email verification first.")
+        return redirect('portal:register')
 
-        if request.method == 'POST':
-            mobile = request.POST.get('mobile')
-            first_name = request.POST.get('first_name', '').strip()
-            last_name = request.POST.get('last_name', '').strip()
-            gender = request.POST.get('gender', '')
-            disability = request.POST.get('disability', '')
-            password = request.POST.get('password')
-            password_confirm = request.POST.get('password_confirm')
-            role = request.POST.get('role', 'User')
+    if request.method == 'POST':
+        mobile = request.POST.get('mobile')
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        gender = request.POST.get('gender', '')
+        disability = request.POST.get('disability', '')
+        password = request.POST.get('password')
+        password_confirm = request.POST.get('password_confirm')
+        role = request.POST.get('role', 'User')
 
-            if password != password_confirm:
-                messages.error(request, "Passwords do not match.")
-                return redirect('portal:register_step2')
+        if password != password_confirm:
+            messages.error(request, "Passwords do not match.")
+            return redirect('portal:register_step2')
 
-            if len(password) < 6:
-                messages.error(request, "Password must be at least 6 characters.")
-                return redirect('portal:register_step2')
+        if len(password) < 6:
+            messages.error(request, "Password must be at least 6 characters.")
+            return redirect('portal:register_step2')
 
-            try:
-                user = User.objects.create_user(
-                    username=email,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name,
-                )
-                profile = UserProfile.objects.create(
-                    user=user,
-                    mobile=mobile,
-                    role=role,
-                    full_name=f"{first_name} {last_name}".strip(),
-                    gender=gender,
-                    disability=disability,
-                )
-
-                if 'resume' in request.FILES:
-                    profile.resume = request.FILES['resume']
-                    profile.save()
-
-                    try:
-                        text = extract_resume_text(profile.resume.path)
-                        engine = AIEngine()
-                        ai_data = engine.analyze_resume(text)
-                        parsed_data = merge_resume_data(ai_data, parse_resume_fallback(text))
-
-                        if parsed_data:
-                            if first_name:
-                                parsed_data['first_name'] = first_name
-                            if last_name:
-                                parsed_data['last_name'] = last_name
-                            parsed_data['email'] = email
-                            parsed_data['mobile'] = mobile
-                            save_parsed_resume(profile, parsed_data, registration_email=email, registration_mobile=mobile)
-                            messages.success(request, "Resume uploaded, parsed, and saved to your profile.")
-                    except Exception as e:
-                        print(f"Error processing resume: {e}")
-
-                OTPToken.objects.filter(email=email).delete()
-                if 'registration_email' in request.session:
-                    del request.session['registration_email']
-                if 'otp_verified' in request.session:
-                    del request.session['otp_verified']
-
-                messages.success(request, "Registration successful! Please login.")
-                return redirect('portal:login')
-            except Exception as e:
-                messages.error(request, f"Registration failed: {str(e)}")
-                return redirect('portal:register_step2')
-
-        return render(request, 'portal/register_step2.html', {'email': email})
-    except Exception as e:
-        tb = traceback.format_exc()
-        return HttpResponse(f"<h3>Internal Server Error Traceback (Register Step 2)</h3><pre>{tb}</pre>", status=200)
-
-
-def test_db_view(request):
-    from django.db import connection
-    from django.http import HttpResponse
-    import traceback
-    
-    html = ["<h3>Database Diagnosis</h3>"]
-    
-    try:
-        # 1. Test basic connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1;")
-            row = cursor.fetchone()
-            html.append(f"<p>Basic connection test (SELECT 1): <b>SUCCESS</b>. Result: {row}</p>")
-            
-        # 2. Get list of tables
-        with connection.cursor() as cursor:
-            # Query depending on DB type
-            db_engine = connection.settings_dict['ENGINE']
-            html.append(f"<p>Database Engine: <code>{db_engine}</code></p>")
-            if 'sqlite' in db_engine:
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            else:
-                cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public';")
-            tables = [r[0] for r in cursor.fetchall()]
-            html.append(f"<p>Existing tables: <code>{', '.join(tables)}</code></p>")
-            
-        # 3. Test querying auth_user table
         try:
-            from django.contrib.auth.models import User
-            count = User.objects.count()
-            html.append(f"<p>Query auth_user count: <b>SUCCESS</b>. Total users: {count}</p>")
+            user = User.objects.create_user(
+                username=email,
+                email=email,
+                password=password,
+                first_name=first_name,
+                last_name=last_name,
+            )
+            profile = UserProfile.objects.create(
+                user=user,
+                mobile=mobile,
+                role=role,
+                full_name=f"{first_name} {last_name}".strip(),
+                gender=gender,
+                disability=disability,
+            )
+
+            if 'resume' in request.FILES:
+                profile.resume = request.FILES['resume']
+                profile.save()
+
+                try:
+                    text = extract_resume_text(profile.resume.path)
+                    engine = AIEngine()
+                    ai_data = engine.analyze_resume(text)
+                    parsed_data = merge_resume_data(ai_data, parse_resume_fallback(text))
+
+                    if parsed_data:
+                        if first_name:
+                            parsed_data['first_name'] = first_name
+                        if last_name:
+                            parsed_data['last_name'] = last_name
+                        parsed_data['email'] = email
+                        parsed_data['mobile'] = mobile
+                        save_parsed_resume(profile, parsed_data, registration_email=email, registration_mobile=mobile)
+                        messages.success(request, "Resume uploaded, parsed, and saved to your profile.")
+                except Exception as e:
+                    print(f"Error processing resume: {e}")
+
+            OTPToken.objects.filter(email=email).delete()
+            if 'registration_email' in request.session:
+                del request.session['registration_email']
+            if 'otp_verified' in request.session:
+                del request.session['otp_verified']
+
+            messages.success(request, "Registration successful! Please login.")
+            return redirect('portal:login')
         except Exception as e:
-            html.append(f"<p style='color:red'>Query auth_user failed: {str(e)}</p>")
-            
-        # 4. Test querying portal_otptoken table
-        try:
-            from portal.models import OTPToken
-            count = OTPToken.objects.count()
-            html.append(f"<p>Query portal_otptoken count: <b>SUCCESS</b>. Total OTPs: {count}</p>")
-        except Exception as e:
-            html.append(f"<p style='color:red'>Query portal_otptoken failed: {str(e)}</p>")
-            
-        # 5. Test querying django_session table
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT COUNT(*) FROM django_session;")
-                session_count = cursor.fetchone()[0]
-            html.append(f"<p>Query django_session count: <b>SUCCESS</b>. Total sessions: {session_count}</p>")
-        except Exception as e:
-            html.append(f"<p style='color:red'>Query django_session failed: {str(e)}</p>")
-            
-        return HttpResponse("\n".join(html))
-    except Exception as e:
-        tb = traceback.format_exc()
-        html.append(f"<h3 style='color:red'>Diagnosis Failed!</h3><p>Error: {str(e)}</p><pre>{tb}</pre>")
-        return HttpResponse("\n".join(html), status=500)
+            messages.error(request, f"Registration failed: {str(e)}")
+            return redirect('portal:register_step2')
+
+    return render(request, 'portal/register_step2.html', {'email': email})
+
+
+
