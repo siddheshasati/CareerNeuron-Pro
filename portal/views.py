@@ -443,7 +443,7 @@ def register_step1_view(request):
                 return redirect('portal:register')
         except Exception as e:
             tb = traceback.format_exc()
-            return HttpResponse(f"<h3>Internal Server Error Traceback</h3><pre>{tb}</pre>", status=500)
+            return HttpResponse(f"<h3>Internal Server Error Traceback</h3><pre>{tb}</pre>", status=200)
 
     return render(request, 'portal/register_step1.html')
 
@@ -494,7 +494,7 @@ def verify_otp_view(request):
         return render(request, 'portal/verify_otp.html', {'email': email})
     except Exception as e:
         tb = traceback.format_exc()
-        return HttpResponse(f"<h3>Internal Server Error Traceback (Verify OTP)</h3><pre>{tb}</pre>", status=500)
+        return HttpResponse(f"<h3>Internal Server Error Traceback (Verify OTP)</h3><pre>{tb}</pre>", status=200)
 
 
 def register_step2_view(request):
@@ -580,7 +580,7 @@ def register_step2_view(request):
         return render(request, 'portal/register_step2.html', {'email': email})
     except Exception as e:
         tb = traceback.format_exc()
-        return HttpResponse(f"<h3>Internal Server Error Traceback (Register Step 2)</h3><pre>{tb}</pre>", status=500)
+        return HttpResponse(f"<h3>Internal Server Error Traceback (Register Step 2)</h3><pre>{tb}</pre>", status=200)
 
 
 def test_db_view(request):
