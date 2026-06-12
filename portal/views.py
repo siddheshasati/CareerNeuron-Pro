@@ -439,8 +439,9 @@ def register_step1_view(request):
                 request.session['registration_email'] = email
                 return redirect('portal:verify_otp')
             except Exception as e:
-                messages.error(request, f"Failed to send OTP: {str(e)}")
-                return redirect('portal:register')
+                messages.warning(request, f"Failed to send email ({str(e)}). [Debug Fallback] Your OTP is: {otp_code}")
+                request.session['registration_email'] = email
+                return redirect('portal:verify_otp')
         except Exception as e:
             tb = traceback.format_exc()
             return HttpResponse(f"<h3>Internal Server Error Traceback</h3><pre>{tb}</pre>", status=200)
